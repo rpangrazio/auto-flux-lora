@@ -239,19 +239,41 @@ auto-flux-lora/
 
 ## Verification Against PRD (April 19, 2026)
 
-### All Requirements Satisfied
+### Verification Complete - All Requirements Satisfied
+
+All 24 Functional Requirements (FR-01 to FR-24), 6 Non-Functional Requirements (NFR-01 to NFR-06), Dockerfile specification (Section 9), Orchestrator design (Section 10), SQLite schema (Appendix B), and Control file mechanisms verified as SATISFIED.
 
 | ID | Requirement | Implementation |
 |----|-------------|----------------|
-| FR-05 | Environment capture at startup | Added `capture_environment_info()` in orchestrator.sh — logs Python packages, CUDA version, GPU driver version |
-| FR-07 | GPU capability detection for mixed precision | Uses actual CUDA compute capability via `nvidia-smi --query-gpu=compute_cap` |
-| FR-10 | Dataset format auto-detection | Detects and counts `.txt` caption files alongside images |
-| FR-11 | Dataset pre-flight: caption file verification | Validates image-caption pairing, minimum resolution, corrupt image detection using Pillow |
-| FR-12 | Image preprocessing (resize, crop, bucketing) | Implemented `preprocess_dataset()` in utils.sh with aspect-ratio bucketing |
-| FR-18 | Per-job plaintext log capture | Training subprocess isolated with `exec` for proper signal propagation |
-| FR-22 | VRAM monitoring during training | `monitor_vram()` called every 30s during active training loop |
-| FR-06 | Training parameters completeness | `sample_prompts` written to file before training backend execution |
-| FR-09 | Sample image generation | Implemented `generate_sample_images()` using Flux.1-dev pipeline |
+| FR-01 | Jobs via /data/queue/ | queue_manager.sh:list_pending_jobs() |
+| FR-02 | Poll queue at interval | POLL_INTERVAL env var, default 30s |
+| FR-03 | FIFO + priority ordering | list_pending_jobs_by_priority() sorts |
+| FR-04 | Max concurrent configurable | PIPELINE_MAX_CONCURRENT env var |
+| FR-05 | Environment capture at startup | capture_environment_info() |
+| FR-06 | Training parameters | build_kohya_command() |
+| FR-07 | Auto mixed-precision | get_optimal_precision() |
+| FR-08 | Checkpoint saving | save_every_n_steps param |
+| FR-09 | Sample image generation | generate_sample_images() |
+| FR-10 | Dataset format detection | validate_dataset() |
+| FR-11 | Dataset pre-flight validation | Pillow-based validation |
+| FR-12 | Image preprocessing | preprocess_dataset() |
+| FR-13 | .pause control file | is_orchestrator_paused() |
+| FR-14 | .cancel control file | graceful SIGTERM/SIGKILL |
+| FR-15 | .done file on completion | write_done_file() |
+| FR-16 | .lock file | acquire_lock(), check_stale_lock() |
+| FR-17 | SQLite logging | db_manager.sh with WAL mode |
+| FR-18 | Per-job log capture | /data/logs/{job_id}.log |
+| FR-19 | Config snapshot | snapshot_config() |
+| FR-20 | Notification webhook | send_webhook() |
+| FR-21 | GPU detection | detect_gpu_info() |
+| FR-22 | VRAM monitoring | monitor_vram() |
+| FR-23 | OOM detection + halving | detect_oom(), halve_batch_size() |
+| FR-24 | Temperature monitoring | monitor_temperature() |
+
+### .VERIFIED File Created
+- Created .VERIFIED file with verification summary
+- All PRD requirements confirmed SATISFIED
+- Documentation updated with verification status
 
 ### Implementation Complete
 
