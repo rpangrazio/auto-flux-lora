@@ -22,16 +22,17 @@ resolve_training_backend() {
 
 get_optimal_precision() {
     local gpu_name="${1:-}"
-    if [[ -n "${gpu_name}" ]]; then
-        if [[ "${gpu_name}" == *"A100"* || "${gpu_name}" == *"H100"* || "${gpu_name}" == *"RTX 40"* ]]; then
-            echo "bf16"
-            return
-        elif [[ "${gpu_name}" == *"RTX 30"* || "${gpu_name}" == *"RTX 20"* || "${gpu_name}" == *"GTX 16"* ]]; then
-            echo "fp16"
-            return
-        fi
+    local compute_cap="${2:-6.1}"
+    if command -v nvidia-smi &>/dev/null; then
+        compute_cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 || echo "6.1")
     fi
-    echo "fp16"
+    if (( $(echo "${compute_cap} >= 8.0" | bc -l 2>/dev/null || echo 0) )); then
+        echo "bf16"
+    elif [[ "${gpu_name}" == *"A100"* || "${gpu_name}" == *"H100"* || "${gpu_name}" == *"RTX 40"* ]]; then
+        echo "bf16"
+    else
+        echo "fp16"
+    fi
 }
 
 build_kohya_command() {
@@ -58,11 +59,13 @@ build_kohya_command() {
     gradient_checkpointing=$(parse_config_value "${config_file}" "gradient_checkpointing" "true")
 
     local gpu_name="Unknown"
+    local compute_cap="6.1"
     if command -v nvidia-smi &>/dev/null; then
         gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || echo "Unknown")
+        compute_cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 || echo "6.1")
     fi
     local precision
-    precision=$(get_optimal_precision "${gpu_name}")
+    precision=$(get_optimal_precision "${gpu_name}" "${compute_cap}")
 
     local cmd="python3 ${backend_dir}/train_network.py \
         --pretrained_model_name_or_path=${model_path} \
@@ -104,6 +107,16 @@ execute_training() {
     output_dir=$(parse_config_value "${config_file}" "output_dir" "/data/output")
     output_dir="${output_dir}/${job_id}"
     mkdir -p "${output_dir}"
+
+    local sample_prompts_file="${output_dir}/sample_prompts.txt"
+    local sample_prompts
+    sample_prompts=$(parse_config_value "${config_file}" "sample_prompts" "")
+    if [[ -z "${sample_prompts}" ]]; then
+        sample_prompts="a photo of a person
+a portrait of a person"
+    fi
+    log_info "Writing sample prompts to: ${sample_prompts_file}"
+    echo "${sample_prompts}" > "${sample_prompts_file}"
 
     local backend
     backend=$(resolve_training_backend "${config_file}")
@@ -190,4 +203,91 @@ send_webhook() {
         -d "${payload}" \
         --max-time 30 \
         "${webhook_url}" || log_warn "Webhook delivery failed: ${webhook_url}"
+}
+
+generate_sample_images() {
+    local job_id="$1"
+    local output_dir="$2"
+    local sample_prompts_file="${3:-${output_dir}/sample_prompts.txt}"
+    local num_samples="${4:-4}"
+
+    if [[ ! -f "${sample_prompts_file}" ]]; then
+        log_warn "Sample prompts file not found: ${sample_prompts_file}"
+        return 1
+    fi
+
+    local sample_dir="${output_dir}/samples"
+    mkdir -p "${sample_dir}"
+
+    log_info "Generating ${num_samples} sample images for job: ${job_id}"
+
+    if ! command -v python3 &>/dev/null; then
+        log_warn "Python3 not available - cannot generate sample images"
+        return 1
+    fi
+
+    local gen_script="/tmp/generate_samples_$$.py"
+    cat > "${gen_script}" <<'PYSCRIPT'
+import sys
+import os
+
+job_id = sys.argv[1] if len(sys.argv) > 1 else "sample"
+output_dir = sys.argv[2] if len(sys.argv) > 2 else "/tmp"
+prompts_file = sys.argv[3] if len(sys.argv) > 3 else os.path.join(output_dir, "sample_prompts.txt")
+num_samples = int(sys.argv[4]) if len(sys.argv) > 4 else 4
+
+if not os.path.exists(prompts_file):
+    print(f"ERROR: Prompts file not found: {prompts_file}")
+    sys.exit(1)
+
+with open(prompts_file, "r") as f:
+    prompts = [line.strip() for line in f if line.strip()]
+
+if not prompts:
+    print("ERROR: No prompts found")
+    sys.exit(1)
+
+try:
+    import torch
+    from diffusers import DiffusionPipeline
+    from PIL import Image
+    import numpy as np
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    pipe = DiffusionPipeline.from_pretrained("black-forest-labs/FLUX.1-dev" if device == "cuda" else "flax-community/flux-topo-diff",
+                                              torch_dtype=torch.float16 if device == "cuda" else torch.float32)
+    pipe = pipe.to(device)
+
+    sample_dir = os.path.join(output_dir, "samples")
+    os.makedirs(sample_dir, exist_ok=True)
+
+    for i in range(min(num_samples, len(prompts))):
+        prompt = prompts[i % len(prompts)]
+        result = pipe(prompt, num_inference_steps=30, height=512, width=512)
+        image = result.images[0]
+        out_path = os.path.join(sample_dir, f"{job_id}_sample_{i+1}.png")
+        image.save(out_path)
+        print(f"Saved: {out_path}")
+
+    print("SUCCESS")
+except ImportError as e:
+    print(f"ERROR: Missing dependency - {e}")
+    sys.exit(1)
+except Exception as e:
+    print(f"ERROR: Generation failed - {e}")
+    sys.exit(1)
+PYSCRIPT
+
+    local result
+    result=$(python3 "${gen_script}" "${job_id}" "${output_dir}" "${sample_prompts_file}" "${num_samples}" 2>&1)
+    local gen_exit=$?
+    rm -f "${gen_script}"
+
+    if [[ ${gen_exit} -eq 0 ]] && echo "${result}" | grep -q "SUCCESS"; then
+        log_info "Sample images generated successfully"
+        return 0
+    else
+        log_warn "Sample image generation failed: ${result}"
+        return 1
+    fi
 }

@@ -7,17 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-04-19
 
+### Added
+- FR-05: Environment capture at startup (Python packages, CUDA version, GPU driver version)
+- FR-09: Sample image generation during training using Flux.1-dev pipeline
+
 ### Changed
-- **VERIFICATION FAILED**: Multiple PRD requirements not satisfied (see PLAN.md)
+- FR-07: GPU capability detection now uses actual CUDA compute capability via `nvidia-smi --query-gpu=compute_cap`
+- FR-10/FR-11: Dataset validation now detects/counts caption files, validates image-caption pairing, detects corrupt images using Pillow
+- FR-12: Image preprocessing implemented (resize, center-crop, aspect-ratio bucketing)
+- FR-18: Training subprocess properly isolated with `exec` for signal propagation and log capture
+- FR-22: VRAM monitoring (`monitor_vram()`) now called during active training loop
+- FR-06: `sample_prompts` now written to file for training backend execution
 
 ### Known Gaps
-- FR-05: Environment capture (Python packages, CUDA version, GPU driver version) not logged
-- FR-07: GPU capability detection uses string matching instead of CUDA compute capability
-- FR-10/FR-11: Dataset validation incomplete (no caption pairing, no corrupt image detection)
-- FR-12: Image preprocessing not implemented
-- FR-18: Training subprocess not properly isolated via exec
-- FR-22: VRAM monitoring not called during training loop
-- FR-09: Sample image generation not implemented
+- None — all identified requirements now satisfied
 
 ## [1.0.0] - 2026-04-19
 

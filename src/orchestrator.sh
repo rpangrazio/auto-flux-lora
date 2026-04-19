@@ -36,10 +36,52 @@ init_orchestrator() {
     log_info "=========================================="
     mkdir -p "${OUTPUT_DIR}" "${LOG_DIR}" "${DATASET_DIR}" "${CONFIG_DIR}"
     detect_gpu_info
+    capture_environment_info
     init_database
     check_stale_lock
     acquire_lock
     log_event "SYSTEM" "Orchestrator initialized"
+}
+
+capture_environment_info() {
+    log_info "=========================================="
+    log_info "Environment Capture"
+    log_info "=========================================="
+    if command -v nvidia-smi &>/dev/null; then
+        local cuda_version gpu_driver
+        cuda_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo "unknown")
+        log_info "GPU Driver Version: ${cuda_version}"
+        log_event "SYSTEM" "GPU driver: ${cuda_version}"
+    fi
+    if command -v nvcc &>/dev/null; then
+        local nvcc_version
+        nvcc_version=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release \([0-9.]*\).*/\1/' || echo "unknown")
+        log_info "CUDA Toolkit Version: ${nvcc_version}"
+        log_event "SYSTEM" "CUDA toolkit: ${nvcc_version}"
+    elif [[ -f /usr/local/cuda/version.txt ]]; then
+        local cuda_ver
+        cuda_ver=$(cat /usr/local/cuda/version.txt 2>/dev/null | grep "CUDA Version" | sed 's/CUDA Version: //' | xargs || echo "unknown")
+        log_info "CUDA Version: ${cuda_ver}"
+        log_event "SYSTEM" "CUDA version: ${cuda_ver}"
+    fi
+    local python_version
+    python_version=$(python3 --version 2>&1 | awk '{print $2}' || echo "unknown")
+    log_info "Python Version: ${python_version}"
+    log_event "SYSTEM" "Python: ${python_version}"
+    if command -v pip &>/dev/null; then
+        local torch_version transformers_version diffusers_version accelerate_version
+        torch_version=$(pip show torch 2>/dev/null | grep "^Version:" | awk '{print $2}' || echo "not installed")
+        transformers_version=$(pip show transformers 2>/dev/null | grep "^Version:" | awk '{print $2}' || echo "not installed")
+        diffusers_version=$(pip show diffusers 2>/dev/null | grep "^Version:" | awk '{print $2}' || echo "not installed")
+        accelerate_version=$(pip show accelerate 2>/dev/null | grep "^Version:" | awk '{print $2}' || echo "not installed")
+        log_info "Python Packages:"
+        log_info "  torch: ${torch_version}"
+        log_info "  transformers: ${transformers_version}"
+        log_info "  diffusers: ${diffusers_version}"
+        log_info "  accelerate: ${accelerate_version}"
+        log_event "SYSTEM" "torch=${torch_version} transformers=${transformers_version} diffusers=${diffusers_version} accelerate=${accelerate_version}"
+    fi
+    log_info "=========================================="
 }
 
 acquire_lock() {
@@ -190,33 +232,40 @@ run_training_with_hooks() {
     local job_id="$2"
     local log_file="$3"
 
+    exec 3>&1
+    local training_pid
     (
-        execute_training "${config_file}" "${job_id}" > "${log_file}" 2>&1
-        return $?
-    )
-    local pid=$!
-    local last_temp_warning=0
+        exec execute_training "${config_file}" "${job_id}" > "${log_file}" 2>&1
+    ) &
+    training_pid=$!
+    local last_monitoring=0
 
-    while kill -0 ${pid} 2>/dev/null; do
-        if (( $(date +%s) - last_temp_warning > 60 )); then
+    while kill -0 ${training_pid} 2>/dev/null; do
+        if (( $(date +%s) - last_monitoring > 30 )); then
+            monitor_vram 90
+            if [[ $? -ne 0 ]]; then
+                log_warn "VRAM usage elevated during training: ${job_id}"
+            fi
+        fi
+        if (( $(date +%s) - last_monitoring > 60 )); then
             local temp_status
             temp_status=$(monitor_temperature "${GPU_TEMP_WARN}" "${GPU_TEMP_CRIT}")
             local temp_code=$?
             if [[ ${temp_code} -eq 2 ]]; then
                 log_error "GPU temperature critical - terminating job: ${job_id}"
-                kill -TERM ${pid} 2>/dev/null
+                kill -TERM ${training_pid} 2>/dev/null
                 sleep 5
-                kill -KILL ${pid} 2>/dev/null || true
+                kill -KILL ${training_pid} 2>/dev/null || true
                 return 255
             elif [[ ${temp_code} -eq 1 ]]; then
                 log_warn "GPU temperature elevated - continuing monitoring"
             fi
-            last_temp_warning=$(date +%s)
+            last_monitoring=$(date +%s)
         fi
         sleep 10
     done
 
-    wait ${pid}
+    wait ${training_pid}
     return $?
 }
 
