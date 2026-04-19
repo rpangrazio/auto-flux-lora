@@ -5,6 +5,20 @@ All notable changes to the Flux.1 LoRA Training Pipeline will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-04-19
+
+### Changed
+- **VERIFICATION FAILED**: Multiple PRD requirements not satisfied (see PLAN.md)
+
+### Known Gaps
+- FR-05: Environment capture (Python packages, CUDA version, GPU driver version) not logged
+- FR-07: GPU capability detection uses string matching instead of CUDA compute capability
+- FR-10/FR-11: Dataset validation incomplete (no caption pairing, no corrupt image detection)
+- FR-12: Image preprocessing not implemented
+- FR-18: Training subprocess not properly isolated via exec
+- FR-22: VRAM monitoring not called during training loop
+- FR-09: Sample image generation not implemented
+
 ## [1.0.0] - 2026-04-19
 
 ### Added

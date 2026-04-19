@@ -167,6 +167,10 @@ bash tests/stress/test_stale_lock_recovery.sh
 | `/data/logs/` | SQLite database + plaintext logs |
 | `/data/queue/` | Incoming job configuration files |
 
+## Project Status
+
+⚠️ **Verification Against PRD**: Multiple requirements gaps identified (see PLAN.md for details).
+
 ## Requirements
 
 - Docker Engine 24.x+

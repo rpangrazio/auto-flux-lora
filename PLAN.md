@@ -237,6 +237,36 @@ auto-flux-lora/
 
 ---
 
+## Verification Against PRD (April 19, 2026)
+
+### Requirements NOT Satisfied
+
+| ID | Requirement | Gap Description | Priority |
+|----|-------------|-----------------|----------|
+| FR-05 | Environment capture at startup | No logging of Python package versions, CUDA version, GPU driver version | Must |
+| FR-07 | GPU capability detection for mixed precision | Uses string matching on GPU name rather than actual CUDA compute capability detection | Must |
+| FR-10 | Dataset format auto-detection | Only counts images; does not detect/count `.txt` caption files | Must |
+| FR-11 | Dataset pre-flight: caption file verification | Missing: captions not validated against images | Must |
+| FR-11 | Dataset pre-flight: corrupt image detection | Missing: no image validation via Pillow | Must |
+| FR-12 | Image preprocessing (resize, crop, bucketing) | Not implemented | Should |
+| FR-18 | Per-job plaintext log capture | Training logs captured but training subprocess not properly isolated | Must |
+| FR-22 | VRAM monitoring during training | `monitor_vram()` defined but not called during training | Should |
+| NFR-03 | Startup time < 120s | Not benchmarked | N/A |
+| FR-06 | Training parameters completeness | `sample_prompts` not written to file for training backend | Must |
+| FR-09 | Sample image generation | Not implemented; only simulated | Should |
+
+### Implementation Tasks Required
+
+1. **FR-05**: Add environment capture logging at training start (Python packages, CUDA version, GPU driver version)
+2. **FR-07**: Modify `gpu_monitor.sh:get_optimal_precision()` to use actual CUDA compute capability from `nvidia-smi --query-gpu=compute_cap`
+3. **FR-10/FR-11**: Implement full dataset validation: image/caption pairing, minimum resolution check, corrupt image detection using Pillow
+4. **FR-12**: Implement image preprocessing (resize, center-crop, aspect-ratio bucketing)
+5. **FR-18**: Properly isolate training subprocess with `exec` to ensure proper signal propagation and log capture
+6. **FR-22**: Call `monitor_vram()` in training hook loop during active training
+7. **FR-09**: Implement sample image generation during training using training backend or independent generation
+
+---
+
 ## Dependencies
 
 | Milestone | Depends On |
