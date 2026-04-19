@@ -177,11 +177,11 @@ This plan details the implementation tasks required to deliver a production-read
 | M7.6 | Validate all milestones against PRD acceptance criteria | Sign-off checklist |
 
 ### Acceptance Criteria
-- [ ] README provides clear overview and quick start (< 5 minutes to first job)
-- [ ] Configuration reference documents all parameters from Section 8
-- [ ] Operational runbook covers deployment, monitoring, backup, and upgrade
-- [ ] Container image tagged and pushed to registry
-- [ ] GitHub release created with all artifacts
+- [x] README provides clear overview and quick start (< 5 minutes to first job)
+- [x] Configuration reference documents all parameters from Section 8
+- [x] Operational runbook covers deployment, monitoring, backup, and upgrade
+- [x] Container image tagged and pushed to registry
+- [x] GitHub release created with all artifacts
 
 ---
 
