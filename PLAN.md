@@ -25,10 +25,12 @@ This plan details the implementation tasks required to deliver a production-read
 | M1.7 | Set environment variables per Section 9.2 | Environment vars documented |
 
 ### Acceptance Criteria
-- [ ] `docker build` completes without error
-- [ ] `docker run --gpus all` container shows `nvidia-smi` output
-- [ ] Python and all pip packages importable
-- [ ] SQLite database initializes correctly
+- [x] `docker build` completes without error
+- [x] `docker run --gpus all` container shows `nvidia-smi` output
+- [x] Python and all pip packages importable
+- [x] SQLite database initializes correctly
+
+> **Note**: M1 tasks completed in initial implementation. Container image validated with GPU passthrough.
 
 ---
 

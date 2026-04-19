@@ -1,0 +1,39 @@
+# ============================================
+# Sample Flux.1 LoRA Training Configuration
+# ============================================
+
+[job]
+priority = 0
+retry_on_oom = true
+max_retries = 2
+
+[model]
+model_name_or_path = "/data/models/flux1-dev"
+output_dir = "/data/output/"
+
+[dataset]
+dataset_path = "/data/datasets/sample"
+
+[training]
+network_rank = 32
+network_alpha = 16.0
+learning_rate = 1e-4
+optimizer = "adamw8bit"
+lr_scheduler = "cosine"
+batch_size = 1
+max_train_epochs = 20
+resolution = 1024
+mixed_precision = "auto"
+seed = 42
+gradient_checkpointing = true
+
+[output]
+save_every_n_steps = 500
+sample_every_n_steps = 250
+sample_prompts = [
+    "a photo of a person in a garden, natural lighting",
+    "a portrait of a person, studio lighting"
+]
+
+[notification]
+# notification_webhook = "http://192.168.1.100:8080/hooks/training"
