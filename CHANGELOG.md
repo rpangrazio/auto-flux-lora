@@ -5,26 +5,25 @@ All notable changes to the Flux.1 LoRA Training Pipeline will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-04-19
+## [Unreleased] - 2026-04-20
 
 ### Added
-- FR-05: Environment capture at startup (Python packages, CUDA version, GPU driver version)
-- FR-09: Sample image generation during training using Flux.1-dev pipeline
+- `.DONE` marker file in repository root after plan review confirmed no remaining implementation tasks (2026-04-20)
 
 ### Changed
+- Documentation status updated in `README.md` and `PLAN.md` to record completion review and execution state
+
+### Historical Notes
+- FR-05: Environment capture at startup (Python packages, CUDA version, GPU driver version)
+- FR-09: Sample image generation during training using Flux.1-dev pipeline
 - FR-07: GPU capability detection now uses actual CUDA compute capability via `nvidia-smi --query-gpu=compute_cap`
 - FR-10/FR-11: Dataset validation now detects/counts caption files, validates image-caption pairing, detects corrupt images using Pillow
 - FR-12: Image preprocessing implemented (resize, center-crop, aspect-ratio bucketing)
 - FR-18: Training subprocess properly isolated with `exec` for signal propagation and log capture
 - FR-22: VRAM monitoring (`monitor_vram()`) now called during active training loop
 - FR-06: `sample_prompts` now written to file for training backend execution
-
-### Verified
 - PRD v1.0 verification complete - all 24 functional requirements, 6 non-functional requirements, Dockerfile spec, orchestrator design, and SQLite schema verified as SATISFIED
 - `.VERIFIED` file created
-
-### Known Gaps
-- None — all identified requirements now satisfied
 
 ## [1.0.0] - 2026-04-19
 
