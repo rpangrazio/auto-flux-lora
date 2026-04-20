@@ -66,7 +66,9 @@ This plan details the implementation tasks required to deliver a production-read
 |------|-------------|-------------|
 | M3.1 | Implement `orchestrator.sh` main loop structure | Script skeleton |
 | M3.2 | Implement queue directory polling (configurable interval) | FR-02 |
-| M3.3 | Implement TOML/YAML config file parsing | FR-01 |
+| M3.3 | Implement dataset pre-flight validation (image-caption pairing, size, dimensions, corrupt detection) | FR-11 |
+| M3.4 | Implement LLM vision model integration for auto-captioning missing `.txt` files | FR-12 |
+| M3.5 | Implement TOML/YAML config file parsing | FR-01 |
 | M3.4 | Implement FIFO + priority job ordering | FR-03 |
 | M3.5 | Implement job lifecycle state machine (QUEUED → PREPARING → TRAINING → COMPLETING → DONE) | FR-05, Section 10.2 |
 | M3.6 | Implement SQLite logging (runs table, schema per Appendix B) | FR-17 |

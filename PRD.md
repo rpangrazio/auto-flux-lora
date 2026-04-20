@@ -158,7 +158,8 @@ All persistent state resides on a single bind-mounted volume (`/data`) organized
 |----|-------------|----------|
 | FR-10 | The pipeline shall auto-detect dataset format: a directory of image files (PNG, JPG, WEBP) with matching `.txt` caption files sharing the same base filename. | Must |
 | FR-11 | A pre-flight validation step shall verify: all images have corresponding caption files, image dimensions meet minimum resolution thresholds, image files are valid/uncorrupted, and the dataset meets a configurable minimum size (default: 3 images). | Must |
-| FR-12 | Optional automatic image preprocessing shall support: resize to target resolution, center-crop, and aspect-ratio-preserving bucketing to minimize padding waste during training. | Should |
+| FR-12 | When a dataset contains images without corresponding `.txt` caption files, the pipeline shall use an integrated LLM vision model to generate captions automatically. The generated captions shall be saved alongside the images with matching `.txt` files for future runs. | Must |
+| FR-13 | Optional automatic image preprocessing shall support: resize to target resolution, center-crop, and aspect-ratio-preserving bucketing to minimize padding waste during training. | Should |
 
 ### 6.4 Control-File Mechanisms
 
