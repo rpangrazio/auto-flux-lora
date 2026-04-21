@@ -5,6 +5,19 @@ All notable changes to the Flux.1 LoRA Training Pipeline will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-04-21
+
+### Changed
+- Re-verified repository implementation against `PRD.md`; prior "all requirements satisfied" verification status was corrected to "gaps identified"
+- Updated `PLAN.md` with concrete PRD gap-closure implementation tasks (V1-V13)
+- Updated `README.md` project status to reflect active implementation state and removed completion claim
+
+### Removed
+- `.DONE` marker file to resume the normal implementation loop after failed full-conformance verification
+
+### Notes
+- Verification gaps include, at minimum: missing FR-12 auto-caption generation, incorrect FR-15 `.done` control-file placement, incomplete FR-17/FR-21 persistence coverage, FR-23 config mutation during OOM retry, and FR-24 thermal pause behavior mismatch
+
 ## [Unreleased] - 2026-04-20
 
 ### Added

@@ -8,11 +8,11 @@
 
 This plan details the implementation tasks required to deliver a production-ready autonomous LoRA training pipeline. The work is organized into 8 milestones aligned with the timeline in Section 13 of the PRD.
 
-## Current Execution Status (2026-04-20)
+## Current Execution Status (2026-04-21)
 
-- Repository reviewed against this plan on `main`.
-- No pending milestone task remains.
-- `.DONE` file created in repository root to mark completion state.
+- Repository re-verified against PRD v1.0 on `main`.
+- Multiple PRD requirements are not fully implemented; implementation loop resumed.
+- `.DONE` marker removed to reflect active work state.
 
 ---
 
@@ -245,54 +245,34 @@ auto-flux-lora/
 
 ---
 
-## Verification Against PRD (April 19, 2026)
+## Verification Against PRD (2026-04-21)
 
-### Verification Complete - All Requirements Satisfied
+### Verification Result - Gaps Identified
 
-All 24 Functional Requirements (FR-01 to FR-24), 6 Non-Functional Requirements (NFR-01 to NFR-06), Dockerfile specification (Section 9), Orchestrator design (Section 10), SQLite schema (Appendix B), and Control file mechanisms verified as SATISFIED.
+PRD conformance was re-checked against the current repository implementation. Several requirements are only partially implemented or not implemented. The prior "all requirements satisfied" status was incorrect.
 
-| ID | Requirement | Implementation |
-|----|-------------|----------------|
-| FR-01 | Jobs via /data/queue/ | queue_manager.sh:list_pending_jobs() |
-| FR-02 | Poll queue at interval | POLL_INTERVAL env var, default 30s |
-| FR-03 | FIFO + priority ordering | list_pending_jobs_by_priority() sorts |
-| FR-04 | Max concurrent configurable | PIPELINE_MAX_CONCURRENT env var |
-| FR-05 | Environment capture at startup | capture_environment_info() |
-| FR-06 | Training parameters | build_kohya_command() |
-| FR-07 | Auto mixed-precision | get_optimal_precision() |
-| FR-08 | Checkpoint saving | save_every_n_steps param |
-| FR-09 | Sample image generation | generate_sample_images() |
-| FR-10 | Dataset format detection | validate_dataset() |
-| FR-11 | Dataset pre-flight validation | Pillow-based validation |
-| FR-12 | Image preprocessing | preprocess_dataset() |
-| FR-13 | .pause control file | is_orchestrator_paused() |
-| FR-14 | .cancel control file | graceful SIGTERM/SIGKILL |
-| FR-15 | .done file on completion | write_done_file() |
-| FR-16 | .lock file | acquire_lock(), check_stale_lock() |
-| FR-17 | SQLite logging | db_manager.sh with WAL mode |
-| FR-18 | Per-job log capture | /data/logs/{job_id}.log |
-| FR-19 | Config snapshot | snapshot_config() |
-| FR-20 | Notification webhook | send_webhook() |
-| FR-21 | GPU detection | detect_gpu_info() |
-| FR-22 | VRAM monitoring | monitor_vram() |
-| FR-23 | OOM detection + halving | detect_oom(), halve_batch_size() |
-| FR-24 | Temperature monitoring | monitor_temperature() |
+### Newly Added Gap-Closure Tasks
 
-### .VERIFIED File Created
-- Created .VERIFIED file with verification summary
-- All PRD requirements confirmed SATISFIED
-- Documentation updated with verification status
+| Task | PRD Ref | Gap | Concrete Implementation Work |
+|------|---------|-----|-------------------------------|
+| V1 | FR-12 | Missing auto-caption generation for images without `.txt` captions | Add caption generation pipeline (local vision-caption model), write `{image_basename}.txt`, and invoke during pre-flight when captions are missing. |
+| V2 | FR-15 | `.done` is written to output directory, not orchestrator working directory control file | Implement orchestrator-level `.done` sentinel with required metadata in the working directory while retaining per-job result artifacts. |
+| V3 | FR-17 | Runs table fields for exit/duration/output/gpu summary are not consistently populated; metrics/event coverage incomplete | Add finalization transaction to update `end_time`, `duration_s`, `exit_code`, `output_path`, `output_hash`, and GPU utilization aggregates; persist lifecycle events for all terminal states. |
+| V4 | FR-19 | Config snapshot saved under `/data/configs/{job_id}` instead of alongside output adapter | Save full config copy into each job output directory next to adapter artifacts. |
+| V5 | FR-21 | GPU startup report omits compute capability/driver/CUDA persistence in database; only partial stdout/event logging | Extend startup probe to capture all required GPU metadata and persist it in SQLite (system event + per-run fields). |
+| V6 | FR-22 | VRAM threshold default uses 90 in runtime hook; PRD default is 95 and interval is not configurable | Add configurable VRAM monitor interval and threshold defaults aligned to PRD; emit warnings without hard-coding capacity assumptions. |
+| V7 | FR-23 | OOM retry mutates original queue config in place via `sed -i` | Refactor retry logic to apply effective batch size in runtime state without editing source config file; preserve immutable input for reproducibility. |
+| V8 | FR-24 | Critical temperature path kills job instead of pausing until temperature recovers | Implement thermal pause loop: suspend/start gating until temperature drops below warning threshold, then resume training control flow. |
+| V9 | NFR-01 | Deterministic controls are incomplete (no explicit NumPy/Torch/CUDA deterministic enforcement in executor path) | Add deterministic bootstrap for Python/NumPy/PyTorch/CUDA, enforce deterministic backend flags, and capture seed settings in logs. |
+| V10 | NFR-04 | Recovery after container restart/interrupt is incomplete (in-flight job reconstruction and terminalization) | Implement startup recovery scanner for interrupted jobs and consistent state reconciliation in SQLite + filesystem sentinels. |
+| V11 | NFR-06 | Operational state is not fully queryable from SQLite without log inspection | Add explicit state query helpers and ensure all lifecycle transitions and warnings are materialized in DB records/events. |
+| V12 | Sec 9.1 | Dockerfile does not pin/install training backend commit/tag as required | Add backend install stage with pinned commit/tag and document pin in build args/metadata. |
+| V13 | Sec 9.3 | Healthcheck does not verify heartbeat timeout sourced from orchestrator-configured value end-to-end | Align healthcheck timeout sourcing with orchestrator lock heartbeat configuration and document operational contract. |
 
-### Implementation Complete
+### Notes
 
-1. **FR-05**: Environment capture logging at startup — Python packages, CUDA toolkit, GPU driver version
-2. **FR-07**: `gpu_monitor.sh:get_optimal_precision()` uses CUDA compute capability from `nvidia-smi --query-gpu=compute_cap`
-3. **FR-10/FR-11**: Full dataset validation with Pillow — image/caption pairing, resolution check, corrupt detection
-4. **FR-12**: Image preprocessing with center-crop and aspect-ratio bucketing
-5. **FR-18**: Training subprocess isolated with `exec` for proper signal propagation and log capture
-6. **FR-22**: `monitor_vram()` called during active training loop
-7. **FR-06**: `sample_prompts` written to file before training backend execution
-8. **FR-09**: Sample image generation using Flux.1-dev pipeline
+- `.DONE` removed on 2026-04-21 to resume implementation loop.
+- `.VERIFIED` should not be re-created until all V1-V13 tasks are completed and re-verified.
 
 ---
 
