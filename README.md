@@ -175,6 +175,13 @@ bash tests/stress/test_stale_lock_recovery.sh
 
 Current implementation includes substantial core functionality (queue orchestration, control files, SQLite logging, monitoring), but verification findings indicate additional work is required before re-marking the project as verified.
 
+## Documentation
+
+- **CHANGELOG.md**: Tracks notable changes and verification notes (this file).
+- **CONFIG.md**: Detailed configuration reference for job and orchestrator settings.
+- **OPS.md**: Operational runbook for deployment, monitoring, and recovery.
+- **docs/usage.md**: Practical usage guide and quickstart (created/updated).
+
 ## Requirements
 
 - Docker Engine 24.x+

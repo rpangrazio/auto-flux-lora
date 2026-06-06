@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-04-21
 
+### Added
+- Created `docs/usage.md` with detailed operational and job submission instructions, environment variables, and troubleshooting guidance.
+
 ### Changed
 - Re-verified repository implementation against `PRD.md`; prior "all requirements satisfied" verification status was corrected to "gaps identified"
 - Updated `PLAN.md` with concrete PRD gap-closure implementation tasks (V1-V13)
