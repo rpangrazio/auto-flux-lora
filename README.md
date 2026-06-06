@@ -1,197 +1,127 @@
 # Flux.1 LoRA Training Pipeline
 
-**Autonomous GPU-Accelerated LoRA Fine-Tuning for Flux.1**
+Autonomous GPU-accelerated LoRA fine-tuning orchestrator for Flux.1 models.
 
-A production-ready, containerized training orchestrator for Flux.1 LoRA fine-tuning. Runs fully autonomous from job submission to trained adapter output with deterministic reproducibility, structured SQLite logging, and file-based queue management.
+This repository provides a containerized, file-driven pipeline that runs LoRA fine-tuning jobs autonomously from job submission through trained adapter output. It is designed for local, air-gapped operation on a single GPU host (e.g., NVIDIA Tesla P40) using Docker + NVIDIA Container Toolkit.
 
-## Features
+Key capabilities
 
-- **Fully Autonomous**: File-based queue and control mechanisms require zero human intervention after job submission
-- **Deterministic Reproducibility**: Identical inputs produce bit-for-bit identical outputs; all parameters snapshotted per run
-- **Production Auditability**: Structured SQLite database with full parameter snapshots, timestamps, and resource metrics
-- **GPU Auto-Detection**: Automatic mixed-precision selection (fp16 on Pascal, bf16 on Ampere+)
-- **Resilient Operation**: OOM recovery with automatic batch-size reduction, graceful shutdown, stale lock detection
-- **Air-Gap Compatible**: No network access required during training
+- Fully autonomous job queue (file-based) with control files for pause/cancel/lock
+- Deterministic reproducibility when given identical inputs (config, dataset, base model, seed)
+- Structured SQLite audit log + per-job plaintext logs
+- GPU detection and auto mixed-precision (fp16/bf16) selection
+- OOM recovery with automatic batch-size reduction and retry
+- Healthcheck and stale-lock recovery for robust unattended operation
 
-## Architecture
+Requirements
 
-```
-auto-flux-lora/
-├── Dockerfile              # Container image definition
-├── docker-compose.yml     # Deployment configuration
-├── src/
-│   ├── orchestrator.sh    # Main entry point and control loop
-│   ├── healthcheck.sh     # Docker health check
-│   └── helpers/
-│       ├── config_parser.sh   # TOML/YAML parsing
-│       ├── queue_manager.sh    # Job queue operations
-│       ├── db_manager.sh       # SQLite operations
-│       ├── gpu_monitor.sh      # GPU detection and monitoring
-│       ├── control_files.sh    # Sentinel file handling
-│       └── utils.sh            # Shared utilities
-├── tests/
-│   ├── unit/              # Unit tests
-│   ├── integration/       # Integration tests
-│   └── stress/            # Stress tests
-├── scripts/               # Utility scripts
-├── sample/config/         # Sample configurations
-└── docs/diagrams/         # Architecture diagrams
-```
+- Docker Engine 24.x+
+- NVIDIA drivers 535+ and NVIDIA Container Toolkit (nvidia-docker)
+- Host with sufficient CPU/RAM and at least one CUDA-compatible GPU (24 GB VRAM recommended for Flux.1)
 
-## Quick Start
+Quick start (developer/local)
 
-### 1. Build Container
+1. Build the container image (optional if using a published image):
 
 ```bash
 docker build -t lora-pipeline:1.0.0 .
 ```
 
-### 2. Configure Storage
+2. Prepare persistent storage on the host (example):
 
 ```bash
-./scripts/setup_storage.sh /srv/lora-pipeline/data
+mkdir -p /srv/lora-pipeline/data/{queue,output,logs,datasets,configs}
+chown -R $(id -u):$(id -g) /srv/lora-pipeline/data
 ```
 
-### 3. Deploy
+3. Configure environment and deploy the container stack (recommended via docker-compose):
 
 ```bash
+export PIPELINE_QUEUE_DIR=/srv/lora-pipeline/data/queue
+export PIPELINE_OUTPUT_DIR=/srv/lora-pipeline/data/output
+export PIPELINE_LOG_DIR=/srv/lora-pipeline/data/logs
+
 docker compose up -d
 ```
 
-### 4. Submit a Job
+4. Submit a job by copying a TOML (or YAML) config into the queue directory:
 
 ```bash
-cp my_training_config.toml /srv/lora-pipeline/data/queue/
+cp sample/config/example_training.toml /srv/lora-pipeline/data/queue/
 ```
 
-The orchestrator polls the queue every 30 seconds. When a job is detected, it transitions through states: `QUEUED` → `PREPARING` → `TRAINING` → `COMPLETING` → `DONE`.
+The orchestrator polls the queue and will pick up jobs automatically. Typical lifecycle: QUEUED → PREPARING → TRAINING → COMPLETING → DONE.
 
-## Configuration
+Configuration example
 
-```toml
-[job]
-priority = 0
-retry_on_oom = true
-max_retries = 2
+A representative TOML configuration is provided in `sample/config/example_training.toml`. Key sections include `[job]`, `[model]`, `[dataset]`, `[training]`, and `[output]`.
 
-[model]
-model_name_or_path = "/data/models/flux1-dev"
-output_dir = "/data/output/"
+Control files (sentinels)
 
-[dataset]
-dataset_path = "/data/datasets/my_dataset"
+- `.lock` — prevents concurrent orchestrator instances (heartbeat-updated)
+- `.pause` — suspend dequeueing of new jobs (current job completes)
+- `.cancel` — request graceful termination of the currently running job
+- `.done` — written by the orchestrator on successful job completion with summary metadata
 
-[training]
-network_rank = 32
-network_alpha = 16.0
-learning_rate = 1e-4
-optimizer = "adamw8bit"
-lr_scheduler = "cosine"
-batch_size = 1
-max_train_epochs = 20
-resolution = 1024
-mixed_precision = "auto"
-seed = 42
-gradient_checkpointing = true
+Usage & verification
 
-[output]
-save_every_n_steps = 500
-sample_every_n_steps = 250
-sample_prompts = [
-    "a photo of a person",
-    "a portrait of a person"
-]
-```
-
-## Control Files
-
-| File | Purpose |
-|------|---------|
-| `.pause` | Suspend job dequeue (running job completes) |
-| `.cancel` | Graceful SIGTERM → SIGKILL on running job |
-| `.lock` | Prevents concurrent orchestrator instances |
-| `.done` | Written on successful completion |
-
-## Monitoring
+- Follow real-time logs: `docker logs -f lora-pipeline`
+- Query recent runs (example):
 
 ```bash
-# Real-time logs
-docker logs -f lora-pipeline
-
-# Job history
-sqlite3 /srv/lora-pipeline/data/logs/training.db \
-  "SELECT job_id, status, duration_s FROM runs ORDER BY start_time DESC LIMIT 10;"
-
-# Container health
-docker inspect --format='{{.State.Health.Status}}' lora-pipeline
+sqlite3 /srv/lora-pipeline/data/logs/training.db "SELECT job_id,status,duration_s FROM runs ORDER BY start_time DESC LIMIT 10;"
 ```
 
-## Testing
+- Container health: `docker inspect --format='{{.State.Health.Status}}' lora-pipeline`
+
+Testing
+
+Unit and integration test shells are available under `tests/`.
 
 ```bash
 # Unit tests
 bash tests/unit/test_config_parser.sh
 bash tests/unit/test_dataset_preflight.sh
-bash tests/unit/test_sqlite_schema.sh
-bash tests/unit/test_control_files.sh
 
-# Integration tests
+# Integration/E2E smoke
 bash tests/integration/test_e2e_smoke.sh
-bash tests/integration/test_queue_processing.sh
-bash tests/integration/test_priority_override.sh
-
-# Stress tests
-bash tests/stress/test_oom_recovery.sh
-bash tests/stress/test_stale_lock_recovery.sh
 ```
 
-## Environment Variables
+Environment variables (common)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PIPELINE_QUEUE_DIR` | `/data/queue` | Queue directory |
-| `PIPELINE_OUTPUT_DIR` | `/data/output` | Output directory |
-| `PIPELINE_LOG_DIR` | `/data/logs` | Log directory |
-| `PIPELINE_POLL_INTERVAL` | `30` | Queue polling interval (seconds) |
-| `PIPELINE_MAX_CONCURRENT` | `1` | Max concurrent jobs |
-| `NVIDIA_VISIBLE_DEVICES` | `all` | GPU visibility |
-| `CUBLAS_WORKSPACE_CONFIG` | `:4096:8` | Deterministic mode |
+- `PIPELINE_QUEUE_DIR` (default `/data/queue`)
+- `PIPELINE_OUTPUT_DIR` (default `/data/output`)
+- `PIPELINE_LOG_DIR` (default `/data/logs`)
+- `PIPELINE_POLL_INTERVAL` (default `30` seconds)
+- `PIPELINE_MAX_CONCURRENT` (default `1`)
+- `NVIDIA_VISIBLE_DEVICES` (default `all`)
+- `CUBLAS_WORKSPACE_CONFIG` (should be set for deterministic CUDA behavior, e.g., `:4096:8`)
 
-## Storage Layout
+Storage layout
 
-| Path | Purpose |
-|------|---------|
-| `/data/datasets/` | Training datasets (images + captions) |
-| `/data/configs/` | Reference configuration copies |
-| `/data/output/` | Trained adapters (.safetensors), checkpoints |
-| `/data/logs/` | SQLite database + plaintext logs |
-| `/data/queue/` | Incoming job configuration files |
+- `/data/datasets/` — datasets (images + captions)
+- `/data/configs/` — reference configuration copies
+- `/data/output/` — trained adapters (`.safetensors`), checkpoints, sample images
+- `/data/logs/` — SQLite DB (`training.db`) + per-job logs
+- `/data/queue/` — incoming job configuration files
 
-## Project Status
+Operational notes
 
-**Verification Update (2026-04-21)** — Repository was re-checked against `PRD.md` and identified implementation gaps; full PRD compliance is not yet complete.
-**Execution State** — `.DONE` marker removed and implementation loop resumed.
-**Tracking** — Gap-closure tasks are documented in `PLAN.md` (Verification section, tasks V1-V13).
+- Pre-download base Flux.1 model weights to `/data/models/` for air-gap operation.
+- Ensure host has appropriate GPU drivers and the NVIDIA Container Toolkit installed before running.
+- Use `PIPELINE_MAX_CONCURRENT=1` for single-GPU hosts; raising concurrency requires careful resource planning.
 
-Current implementation includes substantial core functionality (queue orchestration, control files, SQLite logging, monitoring), but verification findings indicate additional work is required before re-marking the project as verified.
+Project status (2026-06-06)
 
-## Documentation
+- Core orchestrator, queueing, logging, and basic resilience logic implemented.
+- Some PRD items require additional verification slices (see `PLAN.md`).
+- Documentation updated (README + docs/usage.md) to reflect installation and usage guidance.
 
-- **CHANGELOG.md**: Tracks notable changes and verification notes (this file).
-- **CONFIG.md**: Detailed configuration reference for job and orchestrator settings.
-- **OPS.md**: Operational runbook for deployment, monitoring, and recovery.
-- **docs/usage.md**: Practical usage guide and quickstart (created/updated).
+Docs and references
 
-## Requirements
+- `PRD.md` — Product Requirements Document (authoritative requirements)
+- `PLAN.md` — Implementation plan and queued tasks
+- `CHANGELOG.md` — Project changelog and verification notes
+- `docs/usage.md` — Detailed usage guide and troubleshooting (this repo)
 
-- Docker Engine 24.x+
-- NVIDIA drivers 535+
-- NVIDIA Container Toolkit (nvidia-docker2)
-- NVIDIA Tesla P40 or equivalent GPU (24GB VRAM recommended)
-- CUDA 12.x
-
-## Project Info
-
-- **Version**: 1.0.0
-- **Based on**: PRD v1.0 — April 2026
-- **Target GPU**: NVIDIA Tesla P40 (24GB, Compute 6.1)
+Last updated: 2026-06-06 (OpenClaw Assistant)
