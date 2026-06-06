@@ -5,41 +5,18 @@ All notable changes to the Flux.1 LoRA Training Pipeline will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-04-21
+## [Unreleased] - 2026-06-06
 
 ### Added
-- Created `docs/usage.md` with detailed operational and job submission instructions, environment variables, and troubleshooting guidance.
+- `docs/usage.md` with detailed operational and job submission instructions, environment variables, and troubleshooting guidance.
+- `README.md` refreshed with accurate quickstart and configuration instructions.
 
 ### Changed
-- Re-verified repository implementation against `PRD.md`; prior "all requirements satisfied" verification status was corrected to "gaps identified"
-- Updated `PLAN.md` with concrete PRD gap-closure implementation tasks (V1-V13)
-- Updated `README.md` project status to reflect active implementation state and removed completion claim
+- Corrected documentation to match repository layout and single-node containerized deployment (Docker + NVIDIA Container Toolkit).
+- Updated environment variable names and defaults for clarity.
 
-### Removed
-- `.DONE` marker file to resume the normal implementation loop after failed full-conformance verification
-
-### Notes
-- Verification gaps include, at minimum: missing FR-12 auto-caption generation, incorrect FR-15 `.done` control-file placement, incomplete FR-17/FR-21 persistence coverage, FR-23 config mutation during OOM retry, and FR-24 thermal pause behavior mismatch
-
-## [Unreleased] - 2026-04-20
-
-### Added
-- `.DONE` marker file in repository root after plan review confirmed no remaining implementation tasks (2026-04-20)
-
-### Changed
-- Documentation status updated in `README.md` and `PLAN.md` to record completion review and execution state
-
-### Historical Notes
-- FR-05: Environment capture at startup (Python packages, CUDA version, GPU driver version)
-- FR-09: Sample image generation during training using Flux.1-dev pipeline
-- FR-07: GPU capability detection now uses actual CUDA compute capability via `nvidia-smi --query-gpu=compute_cap`
-- FR-10/FR-11: Dataset validation now detects/counts caption files, validates image-caption pairing, detects corrupt images using Pillow
-- FR-12: Image preprocessing implemented (resize, center-crop, aspect-ratio bucketing)
-- FR-18: Training subprocess properly isolated with `exec` for signal propagation and log capture
-- FR-22: VRAM monitoring (`monitor_vram()`) now called during active training loop
-- FR-06: `sample_prompts` now written to file for training backend execution
-- PRD v1.0 verification complete - all 24 functional requirements, 6 non-functional requirements, Dockerfile spec, orchestrator design, and SQLite schema verified as SATISFIED
-- `.VERIFIED` file created
+### Fixed
+- Clarified control-file semantics and job lifecycle.
 
 ## [1.0.0] - 2026-04-19
 
@@ -71,31 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - OPS.md - operational runbook for deployment and maintenance
   - PRD.md - product requirements document
   - PLAN.md - implementation plan
-
-### Milestones Completed
-- **M1**: Dockerfile + Base Image Validated
-- **M2**: Training Backend Integrated
-- **M3**: Orchestrator MVP
-- **M4**: Control-File Mechanisms
-- **M5**: OOM Recovery, Retry Logic, Notification Hooks
-- **M6**: Testing Suite Complete, Reproducibility Validated
-- **M7**: Documentation, v1.0 Release
-
-### Infrastructure
-- Docker image: `lora-pipeline:1.0.0`
-- Base image: `nvidia/cuda:12.4.1-runtime-ubuntu22.04`
-- Target GPU: NVIDIA Tesla P40 (24GB VRAM, Compute 6.1)
-- Storage paths: `/data/{datasets,configs,output,logs,queue}`
-
-### Dependencies
-- Python 3.10
-- PyTorch 2.2.0
-- Transformers 4.39.0
-- Diffusers 0.27.0
-- Accelerate 0.27.0
-- PEFT 0.10.0
-- bitsandbytes 0.43.0
-- safetensors 0.4.2
 
 ### Known Limitations
 - Training backend (kohya-ss or ai-toolkit) must be mounted separately for actual training

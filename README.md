@@ -115,7 +115,7 @@ Project status (2026-06-06)
 
 - Core orchestrator, queueing, logging, and basic resilience logic implemented.
 - Some PRD items require additional verification slices (see `PLAN.md`).
-- Documentation updated (README + docs/usage.md) to reflect installation and usage guidance.
+- Documentation updated (README + docs/usage.md).
 
 Docs and references
 
