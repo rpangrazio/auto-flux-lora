@@ -53,3 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Training backend (kohya-ss or ai-toolkit) must be mounted separately for actual training
 - Container image tagging and registry push require external docker CLI
 - GitHub release creation requires gh CLI authentication
+
+---
+
+Documentation update performed on 2026-06-06 12:18 CDT by OpenClaw Assistant.
