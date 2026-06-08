@@ -1,51 +1,110 @@
 # Auto-Flux LoRA Implementation
 
-Auto-Flux LoRA (Adaptive Flux Low-Rank Adaptation) is a project dedicated to efficiently fine-tuning large generative models by adapting specific, low-rank components of the model's weights using techniques derived from flux analysis. This allows for rapid customization and specialization of base LLMs or image generation models without requiring full gradient updates across all parameters.
+Auto-Flux LoRA (Adaptive Flux Low-Rank Adaptation) is a framework for efficient LoRA fine-tuning of large generative models using flux-aware adaptation techniques. It focuses on low-VRAM, reproducible training runs and local, containerized operation for air-gapped and on-prem workflows.
 
-## 🌟 Project Goals
-The primary goal is to provide a modular, high-performance framework for LoRA adaptation that integrates seamlessly with dynamic model state tracking ("Flux"). It aims to reduce VRAM overhead during fine-tuning while maintaining the fidelity of the large foundation model.
+Key goals:
+- Autonomous, file-queued LoRA training with deterministic reproducibility.
+- Minimal VRAM footprint through targeted low-rank updates and gradient checkpointing.
+- Per-run auditability via SQLite run metadata and per-job logs.
 
-## 🛠️ Installation (Python Environment)
-This project assumes a Python environment (3.9+) with PyTorch installed. Use pip for dependency management.
+---
 
-```sh
-# Recommended: Create and activate a dedicated virtual environment
-python3 -m venv venv
-source venv/bin/activate
+## Quick Start
+These quick steps get a working local single-node containerized environment. For full operational details see `docs/usage.md`.
 
-# Install dependencies from requirements.txt (or list manually)
-pip install torch torchvision accelerate transformers datasets tensorboard bitsandbytes
-# Install this specific library via editable mode if available
+Prerequisites
+- Linux x86_64 host with Docker Engine 24.x+ and NVIDIA Container Toolkit (nvidia-docker)
+- NVIDIA drivers 535+ and a CUDA 12.x capable GPU (≥16 GB VRAM recommended)
+- Python 3.9+ for local dev tasks
+
+Build the container image (optional if using a published image):
+
+```bash
+docker build -t lora-pipeline:1.0.0 .
+```
+
+Create persistent storage and start via Docker Compose:
+
+```bash
+mkdir -p /srv/lora-pipeline/data/{queue,output,logs,datasets,configs}
+chown -R $(id -u):$(id -g) /srv/lora-pipeline/data
+
+# Start stack (expects docker-compose.yml in repo root)
+docker compose up -d
+```
+
+Submit a job by copying a TOML/YAML config file into the queue directory:
+
+```bash
+cp sample/config/example_training.toml /srv/lora-pipeline/data/queue/
+```
+
+Run modes
+- dev: local development/testing (use virtualenv/conda; run train scripts directly)
+- sim: compose-driven, containerized run for E2E smoke tests
+- prod: single-node container with host-mounted `/data` volume and restart policy
+
+---
+
+## Installation (developer)
+For development and local experiments, follow these steps:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+# editable install for local code changes
 pip install -e .
 ```
 
-## 🚀 Usage Examples
-The core workflow involves: **Load Base Model** $\rightarrow$ **Define LoRA Target Modules** $\rightarrow$ **Run Training Loop** $\rightarrow$ **Save Flux Adapter**.
+Use `accelerate launch` for multi-GPU or mixed-precision training when available.
 
-1.  **Basic Inference Check:** Test loading a model with the adapted weights.
-    ```sh
-    python scripts/inference_test.py --model_path ./adapters/best_adapter --base_model_name openai/llama-2-7b
-    ```
+---
 
-2.  **Training Adapter:** Fine-tune the model on a custom dataset using defined parameters.
-    ```sh
-    accelerate launch train.py \
-        --config=default_config.yaml \
-        --dataset_path /data/my_custom_corpus \
-        --target_modules "q_proj,v_proj" \
-        --rank 8 \
-        --epochs 3
-    ```
+## Usage examples
+Basic inference test (after producing an adapter):
 
-## 📚 Documentation Structure
-This repository organizes documentation as follows:
-- `README.md`: Quick overview, installation, and primary usage examples.
-- `USAGE.md` (or `docs/usage.md`): Detailed walkthroughs for specific tasks (e.g., advanced hyperparameter tuning, resuming training).
-- `CHANGELOG.md`: History of changes, version releases, and feature additions.
+```bash
+python scripts/inference_test.py --model_path ./adapters/best_adapter --base_model_name <base-model-path-or-id>
+```
 
-## ✨ Development Best Practices
-- **Environment:** Always use a dedicated Conda or venv environment.
-- **Accelerated Training:** All large model operations must be run using the `accelerate` launcher tool for optimal resource utilization (multi-GPU/mixed precision).
-- **Dependencies:** Core dependencies are managed via `requirements.txt`. Pay close attention to PyTorch and CUDA compatibility when running builds.
+Start a single app locally (development):
 
-*Last updated: 2026-06-07 (OpenClaw Assistant)*
+```bash
+cd apps/<service>
+pip install -r requirements.txt
+python -m <service>.main
+```
+
+Full containerized integration (recommended for deterministic runs):
+
+```bash
+docker compose up --build
+# follow logs
+docker logs -f lora-pipeline
+```
+
+Health & status
+- View orchestrator logs: `docker logs -f lora-pipeline`
+- Query recent runs: `sqlite3 /srv/lora-pipeline/data/logs/training.db "SELECT job_id,status,duration_s FROM runs ORDER BY start_time DESC LIMIT 10;"`
+
+---
+
+## Documentation
+See the `docs/` folder for:
+- `docs/usage.md` — complete operational guide and examples
+- `PRD.md` — product requirements (design and acceptance tests)
+- `PLAN.md` — implementation backlog and verification tasks
+
+---
+
+## Contributing
+- Follow the plan in `PLAN.md` and ensure PRD acceptance tests pass before merging.
+- Write tests for any new functional behavior and add documentation updates for user-visible changes.
+
+---
+
+## License & Attribution
+See `LICENSE` (if present) or consult repository owner for licensing details.
+
+*Last updated: 2026-06-08 (OpenClaw Assistant)*
